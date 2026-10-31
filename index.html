@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0d12" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='36' r='22' fill='%23f6f1e4'/%3E%3Cpath d='M18 18q6-14 12 0q6-12 10 2q6-8 8 6' fill='%23e8452e'/%3E%3Ccircle cx='24' cy='34' r='3' fill='%23111'/%3E%3Ccircle cx='40' cy='34' r='3' fill='%23111'/%3E%3Cpath d='M28 44l4 8 4-8z' fill='%23ffb02e'/%3E%3C/svg%3E" />
+<title>ROOSTER CITY — San Andreas? San Ayam.</title>
+<style>
+  @font-face { font-family: 'Anton'; src: url('./vendor/fonts/anton.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Barlow Condensed'; src: url('./vendor/fonts/barlow-400.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Barlow Condensed'; src: url('./vendor/fonts/barlow-600.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+  @font-face { font-family: 'Barlow Condensed'; src: url('./vendor/fonts/barlow-700.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+
+  :root {
+    --gold: #ffc531;
+    --gold-2: #ff9d1c;
+    --green: #8ee06a;
+    --red: #ff4b3e;
+    --panel: rgba(10, 12, 16, .72);
+    --line: rgba(255, 255, 255, .14);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+    --safe-t: env(safe-area-inset-top, 0px);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #090b10; }
+  body {
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    color: #fff;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+
+  .hidden { display: none !important; }
+
+  /* ---------- Full-screen effects ---------- */
+  #vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: 4;
+    background:
+      radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,.42) 100%),
+      linear-gradient(to top, rgba(0,0,0,.28), transparent 22%);
+    opacity: 1;
+    transition: background .2s;
+  }
+  #damage {
+    position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 38%, rgba(190, 12, 8, .82) 100%);
+    transition: opacity .28s ease-out;
+  }
+  #flash { position: fixed; inset: 0; pointer-events: none; z-index: 6; background: #fff; opacity: 0; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+
+  #minimap-wrap {
+    position: absolute; top: calc(16px + var(--safe-t)); left: calc(16px + var(--safe-l));
+    width: 172px; height: 172px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.55);
+    box-shadow: 0 0 0 4px rgba(0,0,0,.45), 0 10px 26px rgba(0,0,0,.5), inset 0 0 22px rgba(0,0,0,.8);
+    overflow: hidden; background: #10151b;
+  }
+  #minimap { width: 100%; height: 100%; display: block; }
+  #compass {
+    position: absolute; top: 3px; left: 50%; transform: translateX(-50%);
+    font: 700 12px/1 'Barlow Condensed'; letter-spacing: .12em; color: rgba(255,255,255,.85);
+    text-shadow: 0 1px 3px #000; pointer-events: none;
+  }
+  #minimap-wrap::after {
+    content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle at 50% 50%, transparent 55%, rgba(0,0,0,.45) 100%);
+  }
+
+  #stats {
+    position: absolute; top: calc(14px + var(--safe-t)); right: calc(18px + var(--safe-r));
+    display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  }
+  #wanted { display: flex; gap: 1px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.8)); }
+  #wanted .star {
+    font-size: 34px; line-height: 1; color: rgba(10,12,16,.5);
+    -webkit-text-stroke: 1px rgba(255,255,255,.32);
+    text-shadow: 0 2px 3px rgba(0,0,0,.55); transition: color .18s, transform .18s, text-shadow .18s;
+    transform: scale(1);
+  }
+  #wanted .star.on { color: var(--gold); -webkit-text-stroke-width: 0; text-shadow: 0 0 14px rgba(255,190,40,.9), 0 2px 0 #7a4a00; }
+  #wanted .star.hot { animation: starPulse .7s infinite alternate; }
+  @keyframes starPulse { from { transform: scale(1); filter: brightness(1); } to { transform: scale(1.14); filter: brightness(1.35); } }
+  #money {
+    font: 400 31px/1 'Anton', Impact, sans-serif; letter-spacing: .02em;
+    color: #9bec74; text-shadow: 0 2px 0 #123c0b, 0 0 16px rgba(90,220,90,.28);
+  }
+  #money .cur { font-size: .62em; color: #d8ffd0; vertical-align: .22em; margin-right: 2px; }
+
+  #health-row {
+    position: absolute; left: calc(18px + var(--safe-l)); bottom: calc(20px + var(--safe-b));
+    display: flex; align-items: center; gap: 8px;
+  }
+  .hud-label {
+    font: 700 12px/1 'Barlow Condensed'; letter-spacing: .18em; color: rgba(255,255,255,.62);
+    text-shadow: 0 1px 2px #000;
+  }
+  #health-track {
+    width: 210px; height: 15px; background: rgba(0,0,0,.55);
+    border: 1px solid rgba(255,255,255,.24); padding: 2px;
+    clip-path: polygon(0 0, 100% 0, 97% 100%, 0 100%);
+  }
+  #health-bar {
+    height: 100%; width: 100%; background: linear-gradient(90deg, #45c95a, #8ee06a);
+    box-shadow: 0 0 10px rgba(80,220,90,.5); transition: width .15s, background .3s;
+  }
+  #health-num { font: 700 15px/1 'Barlow Condensed'; color: rgba(255,255,255,.8); min-width: 24px; }
+
+  #weapon-box {
+    position: absolute; right: calc(18px + var(--safe-r)); bottom: calc(20px + var(--safe-b));
+    text-align: right; display: flex; align-items: flex-end; gap: 8px;
+  }
+  #weapon-icon {
+    width: 46px; height: 30px; opacity: .92;
+    background: #e9e6dd;
+    clip-path: polygon(0 38%, 52% 38%, 52% 18%, 100% 18%, 100% 56%, 70% 56%, 64% 100%, 44% 100%, 46% 56%, 0 56%);
+    filter: drop-shadow(0 2px 3px #000);
+  }
+  #weapon-name { font: 700 13px/1 'Barlow Condensed'; letter-spacing: .16em; color: rgba(255,255,255,.62); }
+  #ammo { font: 400 32px/1 'Anton', Impact, sans-serif; color: #fff; text-shadow: 0 2px 0 #000; }
+  #ammo small { font: 600 13px/1 'Barlow Condensed'; color: rgba(255,255,255,.45); letter-spacing: .1em; }
+
+  #speedo {
+    position: absolute; right: calc(20px + var(--safe-r)); bottom: calc(76px + var(--safe-b));
+    text-align: right; text-shadow: 0 2px 4px #000;
+  }
+  #speed-num { font: 400 46px/0.9 'Anton', Impact, sans-serif; color: #fff; }
+  #speedo .unit { font: 700 12px/1 'Barlow Condensed'; letter-spacing: .2em; color: rgba(255,255,255,.55); margin-left: 4px; }
+
+  #mission-hud {
+    position: absolute; top: calc(16px + var(--safe-t)); left: 50%; transform: translateX(-50%);
+    min-width: 310px; max-width: min(560px, 52vw);
+    background: linear-gradient(180deg, rgba(12,14,18,.86), rgba(12,14,18,.62));
+    border-left: 3px solid var(--gold);
+    padding: 9px 16px 10px 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45);
+    clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+  }
+  #mission-title { font: 700 13px/1.1 'Barlow Condensed'; letter-spacing: .18em; color: var(--gold); margin-bottom: 3px; }
+  #mission-obj { font: 600 17px/1.15 'Barlow Condensed'; color: #fff; }
+  #mission-timer { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); font: 400 25px/1 'Anton'; color: #fff; text-shadow: 0 2px 0 #000; }
+  #mission-timer.warn { color: #ff6b5a; animation: blink .6s infinite alternate; }
+  @keyframes blink { from { opacity: 1; } to { opacity: .35; } }
+
+  #notifs {
+    position: absolute; left: calc(20px + var(--safe-l)); top: 208px;
+    display: flex; flex-direction: column; gap: 5px; max-width: 330px;
+  }
+  .notif {
+    background: linear-gradient(90deg, rgba(10,12,16,.92), rgba(10,12,16,.58));
+    border-left: 3px solid var(--gold);
+    padding: 7px 14px 7px 11px;
+    font: 600 16px/1.15 'Barlow Condensed'; letter-spacing: .03em;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35);
+    animation: notifIn .24s ease-out;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 9px) 100%, 0 100%);
+  }
+  .notif.good { border-color: #6ee06a; }
+  .notif.bad { border-color: #ff5a4a; }
+  .notif.money { border-color: #8ee06a; color: #d8ffd0; }
+  .notif.out { animation: notifOut .3s ease-in forwards; }
+  @keyframes notifIn { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+  @keyframes notifOut { to { opacity: 0; transform: translateX(-10px); } }
+
+  #prompt {
+    position: absolute; left: 50%; bottom: calc(92px + var(--safe-b)); transform: translateX(-50%);
+    display: flex; align-items: center; gap: 9px;
+    background: rgba(8,10,14,.78); border: 1px solid rgba(255,255,255,.16);
+    padding: 8px 15px 8px 9px; box-shadow: 0 8px 24px rgba(0,0,0,.45);
+    font: 600 17px/1 'Barlow Condensed'; letter-spacing: .03em; white-space: nowrap;
+  }
+  .key {
+    display: inline-grid; place-items: center; min-width: 27px; height: 27px; padding: 0 6px;
+    background: #f3efe4; color: #12141a; font: 700 15px/1 'Barlow Condensed';
+    border-radius: 3px; box-shadow: 0 2px 0 #8d8a80;
+  }
+
+  #area-name {
+    position: absolute; left: 50%; top: 23%; transform: translateX(-50%);
+    font: 400 38px/1 'Anton', Impact, sans-serif; letter-spacing: .06em;
+    color: rgba(255,255,255,.9); text-shadow: 0 3px 0 rgba(0,0,0,.55), 0 0 28px rgba(0,0,0,.6);
+    opacity: 0; transition: opacity .5s; white-space: nowrap; pointer-events: none;
+  }
+  #area-name.show { opacity: 1; }
+  #area-name small { display: block; font: 600 14px/1 'Barlow Condensed'; letter-spacing: .34em; color: var(--gold); margin-bottom: 6px; }
+
+  #crosshair {
+    position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%,-50%);
+    opacity: .85;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ''; position: absolute; background: rgba(255,255,255,.9); box-shadow: 0 0 4px #000;
+  }
+  #crosshair::before { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-50%); }
+  #crosshair::after { top: 50%; left: 0; height: 1px; width: 100%; transform: translateY(-50%); }
+
+  /* ---------- Touch controls ---------- */
+  #touch-controls { position: fixed; inset: 0; z-index: 12; pointer-events: none; }
+  #stick-base {
+    position: absolute; left: calc(26px + var(--safe-l)); bottom: calc(92px + var(--safe-b));
+    width: 122px; height: 122px; border-radius: 50%;
+    background: rgba(255,255,255,.07); border: 2px solid rgba(255,255,255,.22);
+    box-shadow: inset 0 0 24px rgba(0,0,0,.35); pointer-events: auto; touch-action: none;
+  }
+  #stick-knob {
+    position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px;
+    border-radius: 50%; background: rgba(255,255,255,.35); border: 1px solid rgba(255,255,255,.6);
+    box-shadow: 0 4px 12px rgba(0,0,0,.4);
+  }
+  #touch-actions {
+    position: absolute; right: calc(22px + var(--safe-r)); bottom: calc(86px + var(--safe-b));
+    display: grid; grid-template-columns: repeat(2, 60px); gap: 12px; pointer-events: none;
+  }
+  .tbtn {
+    width: 60px; height: 60px; border-radius: 50%;
+    background: rgba(12,15,20,.62); border: 2px solid rgba(255,255,255,.28);
+    color: #fff; font: 700 12px/1 'Barlow Condensed'; letter-spacing: .06em;
+    display: grid; place-items: center; pointer-events: auto; touch-action: none;
+    box-shadow: 0 6px 16px rgba(0,0,0,.35); text-transform: uppercase;
+  }
+  .tbtn:active, .tbtn.pressed { background: rgba(255,197,49,.8); color: #16130a; border-color: #ffe08a; }
+  .tbtn.big { width: 70px; height: 70px; grid-column: span 2; justify-self: end; background: rgba(190,42,32,.72); border-color: rgba(255,160,140,.6); }
+
+  /* ---------- Overlays ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 30; display: flex;
+    background: linear-gradient(100deg, rgba(6,8,12,.92) 0%, rgba(6,8,12,.72) 48%, rgba(6,8,12,.35) 100%);
+  }
+  #start-screen { padding: calc(5vh + var(--safe-t)) 5vw calc(4vh + var(--safe-b)); flex-direction: column; justify-content: center; }
+  .title-wrap { max-width: 780px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 9px; margin-bottom: 14px;
+    font: 700 13px/1 'Barlow Condensed'; letter-spacing: .32em; color: var(--gold);
+  }
+  .eyebrow::before { content: ''; width: 32px; height: 2px; background: var(--gold); }
+  h1 {
+    margin: 0; font: 400 clamp(58px, 11vw, 148px)/0.82 'Anton', Impact, sans-serif;
+    letter-spacing: .01em; text-transform: uppercase;
+    color: #fff; text-shadow: 0 4px 0 #b4441d, 0 10px 38px rgba(0,0,0,.6);
+  }
+  h1 .city {
+    display: block; color: transparent;
+    -webkit-text-stroke: 3px var(--gold);
+    text-shadow: 0 0 34px rgba(255,170,30,.38);
+    letter-spacing: .06em;
+  }
+  .tagline {
+    margin: 22px 0 0; max-width: 560px; font: 600 22px/1.25 'Barlow Condensed';
+    color: rgba(255,255,255,.82); letter-spacing: .02em;
+  }
+  .tagline b { color: var(--gold); font-weight: 700; }
+  .start-actions { margin-top: 30px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  #start-btn {
+    font: 400 25px/1 'Anton', Impact, sans-serif; letter-spacing: .1em;
+    color: #16120a; background: linear-gradient(180deg, #ffd75e, #ffab1e);
+    border: 0; padding: 17px 42px 15px; cursor: pointer;
+    clip-path: polygon(0 0, 100% 0, 96% 100%, 4% 100%);
+    box-shadow: 0 8px 0 #9a5a00, 0 18px 34px rgba(0,0,0,.45);
+    transition: transform .12s, filter .12s;
+  }
+  #start-btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+  #start-btn:active { transform: translateY(4px); box-shadow: 0 3px 0 #9a5a00; }
+  .hint-small { font: 600 14px/1.3 'Barlow Condensed'; color: rgba(255,255,255,.5); letter-spacing: .06em; max-width: 240px; }
+
+  .controls-card {
+    position: absolute; right: 5vw; top: 50%; transform: translateY(-50%);
+    width: min(360px, 30vw); background: rgba(12,15,20,.66); border: 1px solid var(--line);
+    padding: 20px 22px; box-shadow: 0 20px 60px rgba(0,0,0,.45);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%);
+  }
+  .controls-card h3 { margin: 0 0 12px; font: 700 13px/1 'Barlow Condensed'; letter-spacing: .28em; color: var(--gold); }
+  .ctrl { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07); }
+  .ctrl:last-child { border-bottom: 0; }
+  .ctrl span { font: 600 16px/1.1 'Barlow Condensed'; color: rgba(255,255,255,.8); }
+  .keys { display: flex; gap: 4px; flex-shrink: 0; }
+  kbd {
+    display: inline-grid; place-items: center; min-width: 25px; height: 24px; padding: 0 6px;
+    background: #f0ece1; color: #14161c; border-radius: 3px;
+    font: 700 12px/1 'Barlow Condensed'; box-shadow: 0 2px 0 #827e73;
+  }
+  .controls-card .note { margin-top: 14px; font: 600 14px/1.35 'Barlow Condensed'; color: rgba(255,255,255,.45); }
+  .credits {
+    position: absolute; left: 5vw; bottom: calc(20px + var(--safe-b));
+    font: 600 12px/1.4 'Barlow Condensed'; letter-spacing: .16em; color: rgba(255,255,255,.34);
+  }
+
+  .center-panel { margin: auto; text-align: center; max-width: 520px; padding: 30px; }
+  .center-panel h2 { font: 400 clamp(44px, 7vw, 84px)/0.9 'Anton', Impact, sans-serif; margin: 0 0 10px; letter-spacing: .03em; }
+  .center-panel p { font: 600 18px/1.35 'Barlow Condensed'; color: rgba(255,255,255,.65); margin: 0 0 24px; }
+  .center-panel .btn {
+    font: 400 20px/1 'Anton', Impact, sans-serif; letter-spacing: .1em; color: #16120a;
+    background: linear-gradient(180deg, #ffd75e, #ffab1e); border: 0; padding: 14px 34px 12px;
+    cursor: pointer; box-shadow: 0 6px 0 #9a5a00; clip-path: polygon(0 0, 100% 0, 96% 100%, 4% 100%);
+  }
+  .center-panel .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #9a5a00; }
+  #death-screen { background: radial-gradient(ellipse at center, rgba(80,4,0,.55), rgba(4,5,8,.95) 72%); }
+  #death-screen h2 { color: #ff5a4a; text-shadow: 0 4px 0 #5e0e08; }
+
+  #loading {
+    position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
+    background: #0a0c11; transition: opacity .3s; font: 700 15px/1 'Barlow Condensed'; letter-spacing: .3em; color: var(--gold);
+  }
+  #loading .bar { width: 220px; height: 3px; background: rgba(255,255,255,.12); margin-top: 16px; overflow: hidden; }
+  #loading .bar i { display: block; width: 40%; height: 100%; background: var(--gold); animation: loadSlide 1.1s infinite ease-in-out; }
+  @keyframes loadSlide { 0% { transform: translateX(-100%); } 100% { transform: translateX(320%); } }
+  #loading.done { opacity: 0; pointer-events: none; }
+
+  @media (max-width: 900px) {
+    .controls-card { display: none; }
+    #start-screen { justify-content: flex-end; padding-bottom: calc(9vh + var(--safe-b)); }
+    .tagline { font-size: 18px; }
+    .credits { display: none; }
+  }
+  @media (max-width: 760px) {
+    #minimap-wrap { width: 128px; height: 128px; top: calc(10px + var(--safe-t)); left: calc(10px + var(--safe-l)); }
+    #wanted .star { font-size: 25px; }
+    #money { font-size: 25px; }
+    #health-track { width: 140px; }
+    #health-row { bottom: calc(16px + var(--safe-b)); left: calc(12px + var(--safe-l)); }
+    #weapon-box { bottom: calc(16px + var(--safe-b)); right: calc(12px + var(--safe-r)); }
+    #ammo { font-size: 25px; }
+    #speedo { bottom: calc(68px + var(--safe-b)); }
+    #speed-num { font-size: 36px; }
+    #notifs { top: 150px; max-width: 240px; }
+    .notif { font-size: 14px; }
+    #mission-hud { top: calc(10px + var(--safe-t)); min-width: 0; width: 46vw; padding: 7px 12px; }
+    #mission-obj { font-size: 14px; }
+    #mission-title { font-size: 11px; }
+    #mission-timer { font-size: 19px; right: 12px; }
+    #prompt { bottom: calc(170px + var(--safe-b)); font-size: 15px; }
+    #area-name { top: 31%; font-size: 32px; }
+    h1 { font-size: clamp(52px, 17vw, 90px); }
+    #start-btn { font-size: 21px; padding: 15px 30px 13px; }
+  }
+  @media (max-height: 520px) {
+    #minimap-wrap { width: 104px; height: 104px; }
+    #notifs { top: 118px; }
+    #start-screen { padding-top: 12px; }
+    h1 { font-size: 54px; }
+    .tagline { display: none; }
+    .start-actions { margin-top: 16px; }
+    #stick-base { width: 96px; height: 96px; bottom: 70px; }
+    #stick-knob { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
+    #touch-actions { bottom: 62px; transform: scale(.86); transform-origin: bottom right; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="vignette"></div>
+<div id="damage"></div>
+<div id="flash"></div>
+
+<div id="hud" class="hidden">
+  <div id="minimap-wrap">
+    <canvas id="minimap" width="344" height="344"></canvas>
+    <div id="compass">N</div>
+  </div>
+
+  <div id="stats">
+    <div id="wanted">
+      <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+    </div>
+    <div id="money"><span class="cur">$</span><span id="money-num">250</span></div>
+  </div>
+
+  <div id="health-row">
+    <span class="hud-label">NYAWA</span>
+    <div id="health-track"><div id="health-bar"></div></div>
+    <span id="health-num">100</span>
+  </div>
+
+  <div id="weapon-box">
+    <div>
+      <div id="weapon-name">PISTOL</div>
+      <div id="ammo">12<small>/∞</small></div>
+    </div>
+    <div id="weapon-icon"></div>
+  </div>
+
+  <div id="speedo" class="hidden"><span id="speed-num">0</span><span class="unit">KM/J</span></div>
+
+  <div id="mission-hud" class="hidden">
+    <div id="mission-title">MISI</div>
+    <div id="mission-obj">—</div>
+    <div id="mission-timer">00:00</div>
+  </div>
+
+  <div id="notifs"></div>
+  <div id="prompt" class="hidden"><span class="key" id="prompt-key">E</span><span id="prompt-text"></span></div>
+  <div id="crosshair" class="hidden"></div>
+  <div id="area-name"><small>KOTA AYAM</small><span id="area-text">KAMPUNG AYAM</span></div>
+</div>
+
+<div id="touch-controls" class="hidden">
+  <div id="stick-base"><div id="stick-knob"></div></div>
+  <div id="touch-actions">
+    <button class="tbtn" data-action="jump">Lompat</button>
+    <button class="tbtn" data-action="enter">Mobil</button>
+    <button class="tbtn" data-action="sprint">Lari</button>
+    <button class="tbtn" data-action="switch">Senjata</button>
+    <button class="tbtn big" data-action="attack">Pukul</button>
+  </div>
+</div>
+
+<div id="start-screen" class="overlay">
+  <div class="title-wrap">
+    <div class="eyebrow">3D OPEN WORLD · AKSI · RUSUH</div>
+    <h1>Rooster<span class="city">City</span></h1>
+    <p class="tagline">San Andreas? <b>San Ayam.</b><br>Jadi ayam jago paling ditakuti se-kota. Jalan-jalan, curi mobil, bikin rusuh, dan kumpulkan lima bintang.</p>
+    <div class="start-actions">
+      <button id="start-btn" aria-label="Start Game">MULAI GAME</button>
+      <div class="hint-small">Gunakan headphone untuk pengalaman terbaik. Klik layar untuk mengunci mouse.</div>
+    </div>
+  </div>
+
+  <div class="controls-card">
+    <h3>KONTROL</h3>
+    <div class="ctrl"><span>Jalan / berkendara</span><div class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div></div>
+    <div class="ctrl"><span>Lari / gas</span><div class="keys"><kbd>SHIFT</kbd></div></div>
+    <div class="ctrl"><span>Lompat / rem tangan</span><div class="keys"><kbd>SPACE</kbd></div></div>
+    <div class="ctrl"><span>Tembak / pukul</span><div class="keys"><kbd>KLIK KIRI</kbd></div></div>
+    <div class="ctrl"><span>Pukul (peck)</span><div class="keys"><kbd>KLIK KANAN</kbd></div></div>
+    <div class="ctrl"><span>Masuk / keluar mobil</span><div class="keys"><kbd>F</kbd></div></div>
+    <div class="ctrl"><span>Mulai misi / ambil</span><div class="keys"><kbd>E</kbd></div></div>
+    <div class="ctrl"><span>Ganti senjata</span><div class="keys"><kbd>Q</kbd></div></div>
+    <div class="ctrl"><span>Putar kamera</span><div class="keys"><kbd>MOUSE</kbd></div></div>
+    <div class="ctrl"><span>Jeda</span><div class="keys"><kbd>ESC</kbd></div></div>
+    <div class="note">Tip: habisi pejalan kaki atau ledakkan mobil untuk menaikkan bintang. Polisi makin ganas tiap bintang.</div>
+  </div>
+
+  <div class="credits">ROOSTER CITY v1.0 · THREE.JS · 100% DI BROWSER</div>
+</div>
+
+<div id="pause-screen" class="overlay hidden">
+  <div class="center-panel">
+    <div class="eyebrow" style="justify-content:center">JEDA SEBENTAR</div>
+    <h2>PAUSE</h2>
+    <p>Kota masih menunggu. Klik lanjutkan untuk kembali membuat kekacauan.</p>
+    <button class="btn" id="resume-btn">LANJUTKAN</button>
+    <p style="margin-top:22px;font-size:14px;letter-spacing:.08em">ESC untuk lanjut · F5 untuk mulai ulang</p>
+  </div>
+</div>
+
+<div id="death-screen" class="overlay hidden">
+  <div class="center-panel">
+    <div class="eyebrow" style="justify-content:center;color:#ff6b5a">AYAM JAGO TUMBANG</div>
+    <h2>KAMU MATI</h2>
+    <p id="death-text">Kamu kehabisan nyawa. Bangun lagi di rumah sakit, dompet sedikit lebih ringan.</p>
+    <button class="btn" id="respawn-btn">BANGKIT LAGI</button>
+  </div>
+</div>
+
+<div id="loading"><div>MENYIAPKAN KOTA<div class="bar"><i></i></div></div></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/addons/"
+  }
+}
+</script>
+<script type="module" src="./src/game.js"></script>
+</body>
+</html>
