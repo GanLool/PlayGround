@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildWorld } from './world.js';
-import { createRooster, createHuman, createCar, createPickup, createMarker } from './models.js';
+import { createAnimeCharacter, createHuman, createCar, createPickup, createMarker } from './models.js';
 import { Sound } from './audio.js';
 import { clamp, damp, dampAngle, rand, randInt, pick, TAU, makeCanvasTexture, makeLabelSprite, circleRectResolve } from './utils.js';
 
@@ -37,6 +37,7 @@ const touchControls = $('touch-controls');
 const stickBase = $('stick-base');
 const stickKnob = $('stick-knob');
 const deathText = $('death-text');
+const charCards = [...document.querySelectorAll('.char-card')];
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
 const WANTED_THRESHOLDS = [0, 50, 140, 270, 420, 600];
@@ -61,6 +62,7 @@ const state = {
   wantedPoints: 0,
   lastCrime: -100,
   weapon: 'pistol',
+  character: 'female',
   ammo: 12,
   maxAmmo: 120,
   driving: null,
@@ -87,11 +89,11 @@ const missionDefs = [];
 let mission = null;
 let heli = null;
 
-const rooster = createRooster();
-scene.add(rooster);
+const playerModel = createAnimeCharacter('female');
+scene.add(playerModel);
 const player = {
-  group: rooster,
-  pos: rooster.position,
+  group: playerModel,
+  pos: playerModel.position,
   yaw: 0,
   speed: 0,
   vy: 0,
@@ -157,6 +159,285 @@ function setWeaponUI() {
   weaponIcon.style.opacity = pistol ? '0.92' : '0.15';
   crosshair.classList.toggle('hidden', !pistol || isTouch || state.mode !== 'playing' || !!state.driving);
 }
+
+// ---------------------------------------------------------------------------
+// Character select
+// ---------------------------------------------------------------------------
+function drawAnimePortrait(canvas, variant) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  const female = variant !== 'male';
+  const hair = female ? '#ff8fc4' : '#2f4f8f';
+  const hairDark = female ? '#e06aa8' : '#1f376b';
+  const eye = female ? '#ff4f9a' : '#38b6ff';
+  const outfit = female ? '#f7f3ff' : '#1fb8a6';
+  const accent = female ? '#5b6ee1' : '#ff5a3c';
+  const skin = '#ffd7bd';
+  const skinShade = '#f0b894';
+  const cx = w / 2;
+  const cy = h * 0.43;
+
+  ctx.clearRect(0, 0, w, h);
+  const bg = ctx.createLinearGradient(0, 0, 0, h);
+  bg.addColorStop(0, female ? '#ffd7ec' : '#c9ecff');
+  bg.addColorStop(1, female ? '#7a5cff' : '#2d6bff');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+
+  const glow = ctx.createRadialGradient(cx, h * 0.36, 10, cx, h * 0.36, w * 0.75);
+  glow.addColorStop(0, 'rgba(255,255,255,.65)');
+  glow.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.fillStyle = 'rgba(255,255,255,.8)';
+  for (const [x, y, r] of [[24, 34, 3], [156, 52, 2.5], [146, 150, 2], [30, 158, 2.5], [90, 24, 2]]) {
+    ctx.beginPath();
+    ctx.moveTo(x, y - r * 2);
+    ctx.lineTo(x + r * 0.7, y - r * 0.7);
+    ctx.lineTo(x + r * 2, y);
+    ctx.lineTo(x + r * 0.7, y + r * 0.7);
+    ctx.lineTo(x, y + r * 2);
+    ctx.lineTo(x - r * 0.7, y + r * 0.7);
+    ctx.lineTo(x - r * 2, y);
+    ctx.lineTo(x - r * 0.7, y - r * 0.7);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // shoulders / outfit
+  ctx.fillStyle = outfit;
+  ctx.beginPath();
+  ctx.ellipse(cx, h - 8, 76, 44, 0, 0, TAU);
+  ctx.fill();
+
+  if (female) {
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(cx - 44, h - 40);
+    ctx.lineTo(cx - 10, h - 12);
+    ctx.lineTo(cx + 10, h - 12);
+    ctx.lineTo(cx + 44, h - 40);
+    ctx.lineTo(cx + 30, h - 48);
+    ctx.lineTo(cx, h - 24);
+    ctx.lineTo(cx - 30, h - 48);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#ff4f6d';
+    ctx.beginPath();
+    ctx.ellipse(cx - 7, h - 30, 9, 5, -0.3, 0, TAU);
+    ctx.ellipse(cx + 7, h - 30, 9, 5, 0.3, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, h - 30, 4, 0, TAU);
+    ctx.fill();
+  } else {
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(cx, h - 38, 30, Math.PI * 1.08, Math.PI * 1.92);
+    ctx.stroke();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    for (const sx of [-8, 8]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + sx, h - 38);
+      ctx.lineTo(cx + sx, h - 18);
+      ctx.stroke();
+    }
+  }
+
+  // back hair
+  ctx.fillStyle = hair;
+  ctx.beginPath();
+  ctx.ellipse(cx, h * 0.42, 70, 78, 0, 0, TAU);
+  ctx.fill();
+  if (female) {
+    ctx.beginPath();
+    ctx.ellipse(cx - 60, h * 0.63, 22, 70, 0.08, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx + 60, h * 0.63, 22, 70, -0.08, 0, TAU);
+    ctx.fill();
+  }
+
+  // neck
+  ctx.fillStyle = skin;
+  ctx.fillRect(cx - 13, h * 0.6, 26, 34);
+
+  // head
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 57, 61, 0, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(80,40,60,.18)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // ears
+  ctx.fillStyle = skin;
+  for (const sx of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(cx + sx * 56, cy + 2, 9, 15, 0, 0, TAU);
+    ctx.fill();
+  }
+
+  // eyes
+  const eyeY = cy + 6;
+  for (const sx of [-1, 1]) {
+    const ex = cx + sx * 25;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(ex, eyeY, 17, 21, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(40,20,40,.35)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = eye;
+    ctx.beginPath();
+    ctx.arc(ex, eyeY + 2, 12, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#1a1220';
+    ctx.beginPath();
+    ctx.arc(ex, eyeY + 3, 5.5, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(ex - 4, eyeY - 5, 4.5, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(ex + 4, eyeY + 7, 2, 0, TAU);
+    ctx.fill();
+
+    ctx.strokeStyle = hairDark;
+    ctx.lineWidth = 3.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(ex, eyeY - 2, 17, Math.PI * 1.08, Math.PI * 1.92);
+    ctx.stroke();
+
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(ex, eyeY - 24, 14, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,120,160,.35)';
+    ctx.beginPath();
+    ctx.ellipse(ex + sx * 12, eyeY + 25, 12, 6, 0, 0, TAU);
+    ctx.fill();
+  }
+
+  // nose & mouth
+  ctx.fillStyle = skinShade;
+  ctx.beginPath();
+  ctx.ellipse(cx, h * 0.51, 3, 2, 0, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = '#d94f6a';
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(cx, h * 0.54, 8, Math.PI * 0.15, Math.PI * 0.85);
+  ctx.stroke();
+
+  // bangs
+  ctx.fillStyle = hair;
+  if (female) {
+    ctx.beginPath();
+    ctx.moveTo(cx - 58, h * 0.38);
+    ctx.quadraticCurveTo(cx - 30, h * 0.28, cx - 5, h * 0.34);
+    ctx.quadraticCurveTo(cx + 20, h * 0.27, cx + 58, h * 0.38);
+    ctx.quadraticCurveTo(cx + 30, h * 0.42, cx, h * 0.4);
+    ctx.quadraticCurveTo(cx - 30, h * 0.42, cx - 58, h * 0.38);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx - 58, h * 0.38);
+    ctx.quadraticCurveTo(cx - 45, h * 0.5, cx - 30, h * 0.6);
+    ctx.quadraticCurveTo(cx - 50, h * 0.5, cx - 58, h * 0.38);
+    ctx.fill();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(cx - 58, h * 0.38);
+    ctx.lineTo(cx - 42, h * 0.29);
+    ctx.lineTo(cx - 28, h * 0.38);
+    ctx.lineTo(cx - 10, h * 0.28);
+    ctx.lineTo(cx + 8, h * 0.38);
+    ctx.lineTo(cx + 26, h * 0.29);
+    ctx.lineTo(cx + 44, h * 0.37);
+    ctx.lineTo(cx + 58, h * 0.38);
+    ctx.quadraticCurveTo(cx + 20, h * 0.42, cx, h * 0.4);
+    ctx.quadraticCurveTo(cx - 20, h * 0.42, cx - 58, h * 0.38);
+    ctx.fill();
+  }
+
+  // hair shine
+  ctx.strokeStyle = 'rgba(255,255,255,.35)';
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(cx, h * 0.36, 44, Math.PI * 1.15, Math.PI * 1.55);
+  ctx.stroke();
+
+  // accessory
+  if (female) {
+    ctx.save();
+    ctx.translate(cx + 44, h * 0.23);
+    ctx.rotate(-0.28);
+    ctx.fillStyle = '#ff4f6d';
+    ctx.beginPath();
+    ctx.ellipse(-8, 0, 11, 7, -0.3, 0, TAU);
+    ctx.ellipse(8, 0, 11, 7, 0.3, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, 0, 5, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  } else {
+    ctx.strokeStyle = '#1b1e24';
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(cx, h * 0.42, 62, Math.PI * 1.08, Math.PI * 1.92);
+    ctx.stroke();
+    for (const sx of [-1, 1]) {
+      ctx.fillStyle = '#1b1e24';
+      ctx.beginPath();
+      ctx.ellipse(cx + sx * 58, h * 0.43, 11, 16, 0, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(cx + sx * 58, h * 0.43, 7, 11, 0, 0, TAU);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawCharacterPortraits() {
+  for (const card of charCards) {
+    const canvas = card.querySelector('.char-portrait');
+    if (canvas) drawAnimePortrait(canvas, card.dataset.char);
+  }
+}
+
+function setPlayerCharacter(variant) {
+  if (variant !== 'female' && variant !== 'male') return;
+  state.character = variant;
+  charCards.forEach((card) => card.classList.toggle('selected', card.dataset.char === variant));
+  if (player.group.userData.variant === variant) return;
+  const old = player.group;
+  const next = createAnimeCharacter(variant);
+  next.position.copy(old.position);
+  next.rotation.copy(old.rotation);
+  next.visible = old.visible;
+  scene.remove(old);
+  scene.add(next);
+  player.group = next;
+  player.pos = next.position;
+}
+
+drawCharacterPortraits();
 function flashDamage() {
   state.damageFlash = 0.75;
 }
